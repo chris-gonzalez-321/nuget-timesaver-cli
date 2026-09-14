@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NugetTimesaver.Cli/NugetTimesaver.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NugetTimesaver.Cli.Tests/NugetTimesaver.Cli.Tests.csproj" />
+  </Folder>
+</Solution>
