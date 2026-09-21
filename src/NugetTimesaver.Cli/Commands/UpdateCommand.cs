@@ -12,7 +12,7 @@ public sealed class UpdateCommand : AsyncCommand<UpdateSettings>
 
         try
         {
-            var plan = await UpdatePlanner.BuildPlanAsync(folder, settings.Feed, settings.PackageWildcard, settings.AllowPrerelease);
+            var plan = await UpdatePlanner.BuildPlanAsync(folder, settings.Feed, settings.PackageWildcard, settings.AllowPrerelease, settings.Force);
             PlanTableRenderer.Render(plan);
 
             if (plan.Updates.Count == 0)
@@ -28,23 +28,42 @@ public sealed class UpdateCommand : AsyncCommand<UpdateSettings>
 
             var feedUrl = await FeedResolver.ResolveFeedUrlAsync(settings.Feed);
             var succeeded = 0;
+            var forcedSucceeded = 0;
             var failed = plan.Failures.Count;
 
             foreach (var update in plan.Updates)
             {
                 // --version already pins the exact resolved version, prerelease or not;
                 // `dotnet add package` rejects --prerelease alongside --version.
-                var result = await DotnetCli.RunAsync(
+                var args = new List<string>
+                {
                     "add", update.ProjectPath, "package", update.PackageId,
                     "--version", update.LatestVersion,
-                    "--source", feedUrl);
+                    "--source", feedUrl,
+                };
+
+                // Forced updates come from projects whose restore is currently broken, so the
+                // normal restore-preview/compatibility check `dotnet add package` would do is
+                // guaranteed to fail too — skip it and write the version unconditionally.
+                if (update.IsForced)
+                {
+                    args.Add("--no-restore");
+                }
+
+                var result = await DotnetCli.RunAsync(args.ToArray());
                 var projectName = Path.GetFileNameWithoutExtension(update.ProjectPath);
 
                 if (result.Succeeded)
                 {
                     succeeded++;
+                    if (update.IsForced)
+                    {
+                        forcedSucceeded++;
+                    }
+
+                    var marker = update.IsForced ? " [yellow](forced)[/]" : "";
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[green]Updated[/] {update.PackageId} in {projectName} -> {update.LatestVersion}");
+                        $"[green]Updated[/] {update.PackageId} in {projectName} -> {update.LatestVersion}{marker}");
                 }
                 else
                 {
@@ -60,6 +79,14 @@ public sealed class UpdateCommand : AsyncCommand<UpdateSettings>
             }
 
             AnsiConsole.MarkupLineInterpolated($"\n{succeeded} updated, {failed} failed.");
+
+            if (forcedSucceeded > 0)
+            {
+                AnsiConsole.MarkupLine(
+                    "[yellow]Forced updates skip the normal compatibility check — run `dotnet restore` "
+                    + "on the affected project(s) to confirm everything actually resolves.[/]");
+            }
+
             return failed == 0 ? 0 : 1;
         }
         catch (Exception ex)

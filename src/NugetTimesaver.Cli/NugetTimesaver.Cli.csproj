@@ -10,10 +10,11 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>nuget-t</ToolCommandName>
     <PackageId>NugetTimesaver.Cli</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NuGet.Versioning" Version="7.9.0" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
   </ItemGroup>
 

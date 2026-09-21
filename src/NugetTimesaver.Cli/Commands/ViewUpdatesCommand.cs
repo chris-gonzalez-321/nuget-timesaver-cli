@@ -12,7 +12,7 @@ public sealed class ViewUpdatesCommand : AsyncCommand<UpdatesSettings>
 
         try
         {
-            var plan = await UpdatePlanner.BuildPlanAsync(folder, settings.Feed, settings.PackageWildcard, settings.AllowPrerelease);
+            var plan = await UpdatePlanner.BuildPlanAsync(folder, settings.Feed, settings.PackageWildcard, settings.AllowPrerelease, settings.Force);
             PlanTableRenderer.Render(plan);
             return plan.Failures.Count == 0 ? 0 : 1;
         }

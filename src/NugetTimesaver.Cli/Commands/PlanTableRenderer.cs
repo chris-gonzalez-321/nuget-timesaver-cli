@@ -19,7 +19,8 @@ internal static class PlanTableRenderer
                 .AddColumn("Project")
                 .AddColumn("Package")
                 .AddColumn("Current")
-                .AddColumn("Latest");
+                .AddColumn("Latest")
+                .AddColumn("");
 
             foreach (var update in plan.Updates)
             {
@@ -27,7 +28,8 @@ internal static class PlanTableRenderer
                     Path.GetFileNameWithoutExtension(update.ProjectPath),
                     update.PackageId,
                     update.CurrentVersion,
-                    update.LatestVersion);
+                    update.LatestVersion,
+                    update.IsForced ? "[yellow]forced[/]" : "");
             }
 
             AnsiConsole.Write(table);

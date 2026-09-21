@@ -75,13 +75,18 @@ nuget-t view-updates [--feed <name>] [--fldr <path>] [--pkg-wc <wildcard>] [--pr
   only that exact package; `"IntegrationBroker*"` matches every package
   starting with that prefix. Omit to check every package.
 - `--pre-r` — include prerelease versions when checking for updates.
+- `--force` — see [Handling a project whose restore is already broken](#handling-a-project-whose-restore-is-already-broken) below.
+
+If a project's own restore fails (independent of `nuget-t`), it's listed
+separately as unable to be checked instead of aborting the whole run — every
+other project still gets reported normally.
 
 ### Update packages
 
 Same options as `view-updates`, plus `--apply`:
 
 ```bash
-nuget-t update [--feed <name>] [--fldr <path>] [--pkg-wc <wildcard>] [--pre-r] [--apply]
+nuget-t update [--feed <name>] [--fldr <path>] [--pkg-wc <wildcard>] [--pre-r] [--force] [--apply]
 ```
 
 Without `--apply`, `update` only prints the plan (identical to
@@ -94,6 +99,31 @@ folder:
 
 ```bash
 nuget-t update --feed OTP_PreRelease --pkg-wc "IntegrationBroker*" --pre-r --apply
+```
+
+### Handling a project whose restore is already broken
+
+`view-updates`/`update` normally rely on `dotnet list package --outdated`,
+which needs a project's restore to succeed. If a project's restore is
+*already* failing — for example a direct `PackageReference` pinned to a
+version too old for what the rest of the dependency graph now needs
+(`NU1605`, a package downgrade) — there's nothing for the normal check to
+report, even though bumping that exact package is the fix.
+
+`--force` works around this for any project whose restore fails: it reads
+current versions straight from the `.csproj` XML (no restore needed) and
+looks up the latest version of each directly against the feed via
+`dotnet package search` (also no restore needed), then applies with
+`--no-restore`. Forced updates are marked `forced` in the output.
+
+This skips the compatibility check `dotnet add package` would normally do,
+so **run `dotnet restore` on the affected project afterward** to confirm it
+actually resolves — the tool prints a reminder when this happens. Projects
+that already restore fine are never affected by `--force`; it only kicks in
+as a fallback for ones that were already broken.
+
+```bash
+nuget-t update --feed OTP_Release --fldr ProductBroker --pkg-wc "IntegrationBroker.*" --pre-r --force --apply
 ```
 
 ## Development

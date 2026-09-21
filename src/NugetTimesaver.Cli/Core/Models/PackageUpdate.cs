@@ -4,4 +4,5 @@ public sealed record PackageUpdate(
     string ProjectPath,
     string PackageId,
     string CurrentVersion,
-    string LatestVersion);
+    string LatestVersion,
+    bool IsForced = false);
