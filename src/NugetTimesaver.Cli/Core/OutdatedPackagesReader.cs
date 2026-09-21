@@ -9,7 +9,12 @@ public static class OutdatedPackagesReader
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public static async Task<IReadOnlyList<PackageUpdate>> GetOutdatedAsync(
+    /// <summary>
+    /// Checks one project for outdated packages. Does not throw on a `dotnet` failure (e.g. a
+    /// pre-existing restore error in that project) — callers checking many projects at once
+    /// should report that project as failed and keep going rather than abort the whole run.
+    /// </summary>
+    public static async Task<OutdatedCheckResult> GetOutdatedAsync(
         string projectPath, string feedUrl, bool includePrerelease)
     {
         var args = new List<string>
@@ -27,11 +32,36 @@ public static class OutdatedPackagesReader
         var result = await DotnetCli.RunAsync(args.ToArray());
         if (!result.Succeeded)
         {
-            throw new InvalidOperationException(
-                $"`dotnet list package --outdated` failed for {projectPath}:\n{result.StandardError}");
+            var diagnostics = TryParseProblems(result.StandardOutput) ?? result.GetDiagnosticLines();
+            return new OutdatedCheckResult(projectPath, false, [], diagnostics);
         }
 
-        return ParseOutdatedJson(result.StandardOutput);
+        return new OutdatedCheckResult(projectPath, true, ParseOutdatedJson(result.StandardOutput), []);
+    }
+
+    /// <summary>
+    /// On failure, `dotnet list package --outdated --format json` emits a structured
+    /// {"problems": [{"text": "...", "level": "error"}]} report instead of the normal project
+    /// report. Parsing it directly gives a much more useful message than grepping raw output
+    /// lines for the word "error" (which can just as easily match a `"level": "error"` field
+    /// as the actual explanation next to it).
+    /// </summary>
+    private static IReadOnlyList<string>? TryParseProblems(string json)
+    {
+        try
+        {
+            var report = JsonSerializer.Deserialize<ProblemsReport>(json, JsonOptions);
+            if (report?.Problems is { Count: > 0 } problems)
+            {
+                return problems.Select(p => $"[{p.Level}] {p.Text}").ToList();
+            }
+        }
+        catch (JsonException)
+        {
+            // Not the expected problems-report shape; fall back to raw diagnostics.
+        }
+
+        return null;
     }
 
     /// <summary>Flattens the `dotnet list package --outdated --format json` report into top-level package updates.</summary>
@@ -76,4 +106,11 @@ public static class OutdatedPackagesReader
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("resolvedVersion")] string ResolvedVersion,
         [property: JsonPropertyName("latestVersion")] string LatestVersion);
+
+    private sealed record ProblemsReport(
+        [property: JsonPropertyName("problems")] List<Problem>? Problems);
+
+    private sealed record Problem(
+        [property: JsonPropertyName("text")] string Text,
+        [property: JsonPropertyName("level")] string Level);
 }

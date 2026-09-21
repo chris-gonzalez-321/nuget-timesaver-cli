@@ -39,7 +39,12 @@ public sealed class FeedsAddCommand : AsyncCommand<FeedsAddSettings>
 
         if (!result.Succeeded)
         {
-            AnsiConsole.MarkupLineInterpolated($"[red]Failed to add feed:[/] {result.StandardError.Trim()}");
+            AnsiConsole.MarkupLine("[red]Failed to add feed:[/]");
+            foreach (var line in result.GetDiagnosticLines())
+            {
+                AnsiConsole.MarkupLineInterpolated($"    {line}");
+            }
+
             return 1;
         }
 

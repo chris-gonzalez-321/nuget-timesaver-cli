@@ -14,7 +14,7 @@ public sealed class ViewUpdatesCommand : AsyncCommand<UpdatesSettings>
         {
             var plan = await UpdatePlanner.BuildPlanAsync(folder, settings.Feed, settings.PackageWildcard, settings.AllowPrerelease);
             PlanTableRenderer.Render(plan);
-            return 0;
+            return plan.Failures.Count == 0 ? 0 : 1;
         }
         catch (Exception ex)
         {

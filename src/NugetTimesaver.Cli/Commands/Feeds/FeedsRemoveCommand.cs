@@ -18,7 +18,12 @@ public sealed class FeedsRemoveCommand : AsyncCommand<FeedsRemoveSettings>
 
         if (!result.Succeeded)
         {
-            AnsiConsole.MarkupLineInterpolated($"[red]Failed to remove feed:[/] {result.StandardError.Trim()}");
+            AnsiConsole.MarkupLine("[red]Failed to remove feed:[/]");
+            foreach (var line in result.GetDiagnosticLines())
+            {
+                AnsiConsole.MarkupLineInterpolated($"    {line}");
+            }
+
             return 1;
         }
 

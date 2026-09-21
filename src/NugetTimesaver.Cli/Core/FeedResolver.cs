@@ -41,7 +41,8 @@ public static partial class FeedResolver
         var result = await DotnetCli.RunAsync("nuget", "list", "source");
         if (!result.Succeeded)
         {
-            throw new InvalidOperationException($"`dotnet nuget list source` failed:\n{result.StandardError}");
+            throw new InvalidOperationException(
+                $"`dotnet nuget list source` failed:\n" + string.Join('\n', result.GetDiagnosticLines()));
         }
 
         return ParseListSourcesOutput(result.StandardOutput);

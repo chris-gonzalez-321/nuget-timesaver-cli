@@ -15,22 +15,22 @@ public sealed class UpdateCommand : AsyncCommand<UpdateSettings>
             var plan = await UpdatePlanner.BuildPlanAsync(folder, settings.Feed, settings.PackageWildcard, settings.AllowPrerelease);
             PlanTableRenderer.Render(plan);
 
-            if (plan.Count == 0)
+            if (plan.Updates.Count == 0)
             {
-                return 0;
+                return plan.Failures.Count == 0 ? 0 : 1;
             }
 
             if (!settings.Apply)
             {
                 AnsiConsole.MarkupLine("\n[yellow]Dry run — pass --apply to write these changes.[/]");
-                return 0;
+                return plan.Failures.Count == 0 ? 0 : 1;
             }
 
             var feedUrl = await FeedResolver.ResolveFeedUrlAsync(settings.Feed);
             var succeeded = 0;
-            var failed = 0;
+            var failed = plan.Failures.Count;
 
-            foreach (var update in plan)
+            foreach (var update in plan.Updates)
             {
                 // --version already pins the exact resolved version, prerelease or not;
                 // `dotnet add package` rejects --prerelease alongside --version.
